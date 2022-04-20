@@ -31,6 +31,7 @@ func main() {
 	postsRoutes.GET("", PostsControllers.GetUserPosts)
 	postsRoutes.POST("", PostsControllers.CreatePost)
 	postsRoutes.PUT("/:post_id", PostsControllers.UpdatePost)
+	postsRoutes.DELETE("/:post_id", PostsControllers.DeletePost)
 
 	e.Logger.Fatal(e.Start(":5000"))
 

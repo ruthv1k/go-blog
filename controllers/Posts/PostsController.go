@@ -9,7 +9,6 @@ import (
 	uuid "github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
@@ -53,8 +52,8 @@ func GetUserPosts(c echo.Context) error {
 
 	documents := postsCollection.FindOne(ctx, bson.M{ "authorid": userId }, postOptions);
 
-	if documents.Err() == mongo.ErrNoDocuments || documents.Err() != nil  {
-		return c.JSON(http.StatusNotFound, echo.Map{ "message": "Posts not found" })
+	if documents.Err() != nil  {
+		return c.JSON(http.StatusOK, echo.Map{ "message": "No posts found" })
 	}
 
 	var posts bson.M = make(bson.M)
@@ -81,12 +80,31 @@ func UpdatePost(c echo.Context) error {
 
 	filter := bson.M{"postid": postId}
 	update := bson.D{{"$set", bson.D{{"title", postFromReq.Title}, {"description", postFromReq.Description}}}}
-	opts := options.FindOneAndUpdate().SetUpsert(true)	
-	updatedPost := postsCollection.FindOneAndUpdate(ctx, filter, update, opts)
-	
-	if updatedPost.Err() != nil  {
-		return c.JSON(http.StatusNotFound, echo.Map{ "message": updatedPost.Err() })
+	document := postsCollection.FindOneAndUpdate(ctx, filter, update)
+
+	if document.Err() != nil  {
+		return c.JSON(http.StatusNotFound, echo.Map{ "message": "Post not found" })
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{ "post": updatedPost })
+	var updatedPost types.PublicPost
+	document.Decode(&updatedPost)
+
+	return c.JSON(http.StatusOK, echo.Map{ "message": "Post updated", "post": updatedPost })
+}
+
+func DeletePost(c echo.Context) error {
+	postId := c.Param("post_id")
+	postsCollection, ctx, cancel := mongoconnect.GetCollection("posts")
+	defer cancel()
+	filter := bson.M{"postid": postId}
+	document := postsCollection.FindOneAndDelete(ctx, filter)
+
+	if document.Err() != nil {
+		return c.JSON(http.StatusNotFound, echo.Map{ "message": "Post not found" })
+	}
+
+	var deletedPost types.PublicPost
+	document.Decode(&deletedPost)
+
+	return c.JSON(http.StatusOK, echo.Map{ "message": "Post deleted", "postid": deletedPost.PostId })
 }
