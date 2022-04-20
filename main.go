@@ -23,12 +23,14 @@ func main() {
 	}
 
 	// protected routes
-	r := e.Group("/posts")
-	r.Use(middleware.JWTWithConfig(config))
+	postsRoutes := e.Group("/posts")
 
-	// posts
-	r.GET("", PostsControllers.GetUserPosts)
-	r.POST("", PostsControllers.CreatePost)
+	postsRoutes.Use(middleware.JWTWithConfig(config))
+
+	// posts routes
+	postsRoutes.GET("", PostsControllers.GetUserPosts)
+	postsRoutes.POST("", PostsControllers.CreatePost)
+	postsRoutes.PUT("/:post_id", PostsControllers.UpdatePost)
 
 	e.Logger.Fatal(e.Start(":5000"))
 

@@ -27,7 +27,7 @@ func CreatePost(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	db := mongoconnect.GetDatabase()
-	collection := db.Collection("posts")
+	postsCollection := db.Collection("posts")
 
 	post = &types.PublicPost{
 		AuthorId: userId,
@@ -35,7 +35,7 @@ func CreatePost(c echo.Context) error {
 		Description: post.Description,
 	}
 	
-	if _, err := collection.InsertOne(ctx, post); err != nil {
+	if _, err := postsCollection.InsertOne(ctx, post); err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{ "message": err.Error() })
 	}
 
@@ -50,9 +50,9 @@ func GetUserPosts(c echo.Context) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	db := mongoconnect.GetDatabase()
-	collection := db.Collection("posts")
+	postsCollection := db.Collection("posts")
 
-	documents := collection.FindOne(ctx, bson.M{ "authorid": userId });
+	documents := postsCollection.FindOne(ctx, bson.M{ "authorid": userId });
 
 	if documents.Err() == mongo.ErrNoDocuments || documents.Err() != nil  {
 		return c.JSON(http.StatusNotFound, echo.Map{ "message": "Posts not found" })
@@ -61,9 +61,32 @@ func GetUserPosts(c echo.Context) error {
 	var posts bson.M = make(bson.M)
 	documents.Decode(&posts)
 
-	if len(posts) > 0 {
-		return c.JSON(http.StatusOK, echo.Map{ "posts": posts })
+	return c.JSON(http.StatusOK, echo.Map{ "posts": posts })
+}
+
+func UpdatePost(c echo.Context) error {
+	postId := c.Param("post_id")
+	post := new(types.PublicPost)
+
+	if err := c.Bind(post); err != nil {
+		return err
 	}
 
-	return c.JSON(http.StatusInternalServerError, echo.Map{ "message": "Cannot fetch posts at this moment" })
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	db := mongoconnect.GetDatabase()
+	postsCollection := db.Collection("posts")
+
+	post = &types.PublicPost{
+		Title: post.Title,
+		Description: post.Description,
+	}
+
+	updatedPost := postsCollection.FindOneAndUpdate(ctx, bson.M{ "_id": postId }, post)	
+	
+	if updatedPost.Err() == mongo.ErrNoDocuments || updatedPost.Err() != nil  {
+		return c.JSON(http.StatusNotFound, echo.Map{ "message": "Post not found" })
+	}
+
+	return c.JSON(http.StatusOK, echo.Map{ "post": updatedPost })
 }
