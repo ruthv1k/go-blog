@@ -6,12 +6,12 @@ import (
 	"net/http"
 
 	"github.com/golang-jwt/jwt"
+	uuid "github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-var postsCollection, ctx, cancel = mongoconnect.GetCollection("posts")
 
 func CreatePost(c echo.Context) error {
 	user := c.Get("user").(*jwt.Token)
@@ -23,12 +23,16 @@ func CreatePost(c echo.Context) error {
 	if err := c.Bind(post); err != nil {
 		return err
 	}
-
+	
 	post = &types.PublicPost{
+		PostId: uuid.NewString(),
 		AuthorId: userId,
 		Title: post.Title,
 		Description: post.Description,
 	}
+
+	postsCollection, ctx, cancel := mongoconnect.GetCollection("posts")
+	defer cancel()
 	
 	if _, err := postsCollection.InsertOne(ctx, post); err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{ "message": err.Error() })
@@ -42,7 +46,12 @@ func GetUserPosts(c echo.Context) error {
 	claims := user.Claims.(*types.CustomJWTClaims)
 	userId := claims.UserId
 
-	documents := postsCollection.FindOne(ctx, bson.M{ "authorid": userId });
+	postsCollection, ctx, cancel := mongoconnect.GetCollection("posts")
+	defer cancel()
+
+	postOptions := options.FindOne().SetProjection(bson.D{{"_id", 0}})
+
+	documents := postsCollection.FindOne(ctx, bson.M{ "authorid": userId }, postOptions);
 
 	if documents.Err() == mongo.ErrNoDocuments || documents.Err() != nil  {
 		return c.JSON(http.StatusNotFound, echo.Map{ "message": "Posts not found" })
@@ -56,21 +65,27 @@ func GetUserPosts(c echo.Context) error {
 
 func UpdatePost(c echo.Context) error {
 	postId := c.Param("post_id")
-	post := new(types.PublicPost)
+	postFromReq := new(types.PublicPost)
 
-	if err := c.Bind(post); err != nil {
+	if err := c.Bind(postFromReq); err != nil {
 		return err
 	}
 
-	post = &types.PublicPost{
-		Title: post.Title,
-		Description: post.Description,
+	postFromReq = &types.PublicPost{
+		Title: postFromReq.Title,
+		Description: postFromReq.Description,
 	}
 
-	updatedPost := postsCollection.FindOneAndUpdate(ctx, bson.M{ "_id": postId }, post)	
+	postsCollection, ctx, cancel := mongoconnect.GetCollection("posts")
+	defer cancel()
+
+	filter := bson.M{"postid": postId}
+	update := bson.D{{"$set", bson.D{{"title", postFromReq.Title}, {"description", postFromReq.Description}}}}
+	opts := options.FindOneAndUpdate().SetUpsert(true)	
+	updatedPost := postsCollection.FindOneAndUpdate(ctx, filter, update, opts)
 	
-	if updatedPost.Err() == mongo.ErrNoDocuments || updatedPost.Err() != nil  {
-		return c.JSON(http.StatusNotFound, echo.Map{ "message": "Post not found" })
+	if updatedPost.Err() != nil  {
+		return c.JSON(http.StatusNotFound, echo.Map{ "message": updatedPost.Err() })
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{ "post": updatedPost })
