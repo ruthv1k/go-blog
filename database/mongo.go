@@ -76,3 +76,11 @@ func GetDatabase() *mongo.Database {
 
 	return GetClient().Database("relay_development")
 }
+
+func GetCollection(collectionName string) (*mongo.Collection, context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	db := GetDatabase()
+	postsCollection := db.Collection(collectionName)
+
+	return postsCollection, ctx, cancel
+}
