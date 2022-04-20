@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	mongoconnect "go-auth/database"
 	"go-auth/types"
 	"net/http"
 	"time"
@@ -14,14 +13,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func GetUserByEmail(collection mongo.Collection, ctx context.Context, email string) (types.User, error) {
-	var userdetails types.User
-	
-	err := collection.FindOne(ctx, bson.M{ "email": email }).Decode(&userdetails)
-
-	return userdetails, err
-}
-
 func LoginUser(c echo.Context) (err error) {
 	u := new(types.PublicUser)
 
@@ -29,15 +20,12 @@ func LoginUser(c echo.Context) (err error) {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	db := mongoconnect.GetDatabase()
-	collection := db.Collection("users")
 
-	userDetails, _ := GetUserByEmail(*collection, ctx, u.Email)
+	userDetails, _ := GetUserByEmail(*usersCollection, ctx, u.Email)
 
 	if userDetails.Email != u.Email {
-		return c.JSON(http.StatusBadRequest, echo.Map{ "message": "User not found" })
+		return c.JSON(http.StatusNotFound, echo.Map{ "message": "User not found" })
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(userDetails.Password), []byte(u.Password)); err != nil {
@@ -62,4 +50,12 @@ func LoginUser(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, echo.Map{
 		"token": t,
 	})
+}
+
+func GetUserByEmail(collection mongo.Collection, ctx context.Context, email string) (types.User, error) {
+	var userdetails types.User
+	
+	err := collection.FindOne(ctx, bson.M{ "email": email }).Decode(&userdetails)
+
+	return userdetails, err
 }

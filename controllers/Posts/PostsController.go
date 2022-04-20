@@ -1,17 +1,17 @@
 package controllers
 
 import (
-	"context"
 	mongoconnect "go-auth/database"
 	"go-auth/types"
 	"net/http"
-	"time"
 
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
+
+var postsCollection, ctx, cancel = mongoconnect.GetCollection("posts")
 
 func CreatePost(c echo.Context) error {
 	user := c.Get("user").(*jwt.Token)
@@ -24,11 +24,6 @@ func CreatePost(c echo.Context) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	db := mongoconnect.GetDatabase()
-	postsCollection := db.Collection("posts")
-
 	post = &types.PublicPost{
 		AuthorId: userId,
 		Title: post.Title,
@@ -39,18 +34,13 @@ func CreatePost(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{ "message": err.Error() })
 	}
 
-	return c.JSON(http.StatusOK, echo.Map{ "message": "Post created" })
+	return c.JSON(http.StatusCreated, echo.Map{ "message": "Post created" })
 }
 
 func GetUserPosts(c echo.Context) error {
 	user := c.Get("user").(*jwt.Token)
 	claims := user.Claims.(*types.CustomJWTClaims)
 	userId := claims.UserId
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	db := mongoconnect.GetDatabase()
-	postsCollection := db.Collection("posts")
 
 	documents := postsCollection.FindOne(ctx, bson.M{ "authorid": userId });
 
@@ -71,11 +61,6 @@ func UpdatePost(c echo.Context) error {
 	if err := c.Bind(post); err != nil {
 		return err
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	db := mongoconnect.GetDatabase()
-	postsCollection := db.Collection("posts")
 
 	post = &types.PublicPost{
 		Title: post.Title,

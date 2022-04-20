@@ -1,15 +1,15 @@
 package controllers
 
 import (
-	"context"
 	mongoconnect "go-auth/database"
 	"go-auth/types"
 	"net/http"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"golang.org/x/crypto/bcrypt"
 )
+
+var usersCollection, ctx, cancel = mongoconnect.GetCollection("users")
 
 func RegisterUser(c echo.Context) (err error) {
 	u := new(types.PublicUser)
@@ -18,12 +18,7 @@ func RegisterUser(c echo.Context) (err error) {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	db := mongoconnect.GetDatabase()
-	collection := db.Collection("users")
-
-	if userDetails, _ := GetUserByEmail(*collection, ctx, u.Email); userDetails.Email == u.Email {
+	if userDetails, _ := GetUserByEmail(*usersCollection, ctx, u.Email); userDetails.Email == u.Email {
 		return c.JSON(http.StatusBadRequest, echo.Map{ "message":  "User already exists" })
 	}
 	
@@ -40,7 +35,7 @@ func RegisterUser(c echo.Context) (err error) {
 		Role: "writer",
 	}
 
-	if _, err := collection.InsertOne(ctx, user); err != nil {
+	if _, err := usersCollection.InsertOne(ctx, user); err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{ "message": err.Error() })
 	}
 
