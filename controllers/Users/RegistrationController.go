@@ -5,11 +5,11 @@ import (
 	"go-auth/types"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"go.mongodb.org/mongo-driver/bson"
 	"golang.org/x/crypto/bcrypt"
 )
-
-var usersCollection, ctx, cancel = mongoconnect.GetCollection("users")
 
 func RegisterUser(c echo.Context) (err error) {
 	u := new(types.PublicUser)
@@ -18,7 +18,15 @@ func RegisterUser(c echo.Context) (err error) {
 		return err
 	}
 
-	if userDetails, _ := GetUserByEmail(*usersCollection, ctx, u.Email); userDetails.Email == u.Email {
+	usersCollection, ctx, cancel := mongoconnect.GetCollection("users")
+	defer cancel()
+
+	userDetails := usersCollection.FindOne(ctx, bson.M{ "email": u.Email })
+
+	var user types.User
+	userDetails.Decode(&user)
+
+	if user.Email == u.Email {
 		return c.JSON(http.StatusBadRequest, echo.Map{ "message":  "User already exists" })
 	}
 	
@@ -27,10 +35,11 @@ func RegisterUser(c echo.Context) (err error) {
 		return err
 	}
 
-	user :=  types.User {
-		DisplayName: u.DisplayName,
-		UserName: u.UserName,
-		Email: u.Email,
+	user =  types.User {
+		UserId: uuid.NewString(),
+		DisplayName: user.DisplayName,
+		UserName: user.UserName,
+		Email: user.Email,
 		Password: string(password),
 		Role: "writer",
 	}

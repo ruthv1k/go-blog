@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"context"
+	mongoconnect "go-auth/database"
 	"go-auth/types"
 	"net/http"
 	"time"
@@ -9,7 +9,6 @@ import (
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -20,23 +19,27 @@ func LoginUser(c echo.Context) (err error) {
 		return err
 	}
 
+	usersCollection, ctx, cancel := mongoconnect.GetCollection("users")
 	defer cancel()
 
-	userDetails, _ := GetUserByEmail(*usersCollection, ctx, u.Email)
-
-	if userDetails.Email != u.Email {
+	userDetails := usersCollection.FindOne(ctx, bson.M{ "email": u.Email })
+	
+	if userDetails.Err() != nil  {
 		return c.JSON(http.StatusNotFound, echo.Map{ "message": "User not found" })
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(userDetails.Password), []byte(u.Password)); err != nil {
+	var user types.User
+	userDetails.Decode(&user)
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(u.Password)); err != nil {
 		return c.JSON(http.StatusBadRequest, echo.Map{ "message": "Invalid email / password" })
 	}
 	
 	claims := &types.CustomJWTClaims {
-		UserId:      userDetails.UserId.Hex(),
-		DisplayName:    userDetails.DisplayName,
-		Email:   userDetails.Email,
-		Role: userDetails.Role,
+		UserId:      user.UserId,
+		DisplayName:    user.DisplayName,
+		Email:   user.Email,
+		Role: user.Role,
 		ExpiresAt: time.Now().Add(time.Hour * 1).UnixNano() / int64(time.Millisecond),
 	}
 
@@ -50,12 +53,4 @@ func LoginUser(c echo.Context) (err error) {
 	return c.JSON(http.StatusOK, echo.Map{
 		"token": t,
 	})
-}
-
-func GetUserByEmail(collection mongo.Collection, ctx context.Context, email string) (types.User, error) {
-	var userdetails types.User
-	
-	err := collection.FindOne(ctx, bson.M{ "email": email }).Decode(&userdetails)
-
-	return userdetails, err
 }
