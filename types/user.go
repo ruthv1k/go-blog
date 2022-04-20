@@ -2,11 +2,10 @@ package types
 
 import (
 	"github.com/golang-jwt/jwt"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type PublicUser struct {
-	UserId primitive.ObjectID `bson:"_id,omitempty" json:"user_id"`
+	UserId string `json:"user_id"`
 	DisplayName  string `json:"name"`
 	UserName string `json:"username"`
 	Email string `json:"email"`
@@ -14,7 +13,7 @@ type PublicUser struct {
 }
 
 type User struct {
-	UserId primitive.ObjectID `bson:"_id,omitempty" json:"user_id"`
+	UserId string `json:"user_id"`
 	DisplayName  string `json:"name"`
 	UserName string `json:"username"`
 	Email string `json:"email"`
