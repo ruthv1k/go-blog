@@ -35,11 +35,11 @@ func RegisterUser(c echo.Context) (err error) {
 		return err
 	}
 
-	user =  types.User {
+	user = types.User {
 		UserId: uuid.NewString(),
-		DisplayName: user.DisplayName,
-		UserName: user.UserName,
-		Email: user.Email,
+		DisplayName: u.DisplayName,
+		UserName: u.UserName,
+		Email: u.Email,
 		Password: string(password),
 		Role: "writer",
 	}
