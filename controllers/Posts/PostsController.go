@@ -83,7 +83,8 @@ func UpdatePost(c echo.Context) error {
 
 	filter := bson.M{"postid": postId}
 	update := bson.D{{"$set", bson.D{{"title", postFromReq.Title}, {"description", postFromReq.Description}}}}
-	document := postsCollection.FindOneAndUpdate(ctx, filter, update)
+	opts := options.FindOneAndUpdate().SetReturnDocument(1)	
+	document := postsCollection.FindOneAndUpdate(ctx, filter, update, opts)
 
 	if document.Err() != nil  {
 		return c.JSON(http.StatusNotFound, echo.Map{ "message": "Post not found" })
