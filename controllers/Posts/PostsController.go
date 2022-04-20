@@ -48,16 +48,19 @@ func GetUserPosts(c echo.Context) error {
 	postsCollection, ctx, cancel := mongoconnect.GetCollection("posts")
 	defer cancel()
 
-	postOptions := options.FindOne().SetProjection(bson.D{{"_id", 0}})
+	postOptions := options.Find().SetProjection(bson.D{{"_id", 0}})
 
-	documents := postsCollection.FindOne(ctx, bson.M{ "authorid": userId }, postOptions);
+	cursor, err := postsCollection.Find(ctx, bson.M{ "authorid": userId }, postOptions);
 
-	if documents.Err() != nil  {
+	if err != nil  {
 		return c.JSON(http.StatusOK, echo.Map{ "message": "No posts found" })
 	}
 
-	var posts bson.M = make(bson.M)
-	documents.Decode(&posts)
+	var posts []types.PublicPost
+
+	if err = cursor.All(ctx, &posts); err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{ "message": "Error fetching the posts" })
+	}
 
 	return c.JSON(http.StatusOK, echo.Map{ "posts": posts })
 }
